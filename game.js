@@ -6,8 +6,15 @@ let isJumping = false;
 let gameOver = false;
 let restartButton;
 
+let countdown = 3;        // countdown seconds
+let countdownStartTime;   // track when countdown started
+let gameStarted = false;
+
 function setup() {
   createCanvas(800, 600);
+  textAlign(CENTER, CENTER);
+  textSize(64);
+  countdownStartTime = millis();
   setupGame();
 }
 
@@ -16,6 +23,9 @@ function setupGame() {
   platforms = [];
   isJumping = false;
   gameOver = false;
+  gameStarted = false;
+  countdown = 3;
+  countdownStartTime = millis();
 
   // Start on flat land
   for (let i = 0; i < 3; i++) {
@@ -31,7 +41,6 @@ function setupGame() {
     lastX += gap;
   }
 
-  // Remove restart button if it exists
   if (restartButton) {
     restartButton.remove();
     restartButton = null;
@@ -40,6 +49,20 @@ function setupGame() {
 
 function draw() {
   background(240);
+
+  if (!gameStarted) {
+    // Show countdown
+    let elapsed = floor((millis() - countdownStartTime) / 1000);
+    let timeLeft = countdown - elapsed;
+
+    if (timeLeft > 0) {
+      fill(0);
+      text(timeLeft, width / 2, height / 2);
+    } else {
+      gameStarted = true;
+    }
+    return; // Skip rest of draw until game starts
+  }
 
   if (!gameOver) {
     player.update();
@@ -87,7 +110,7 @@ function draw() {
 }
 
 function keyPressed() {
-  if (key === ' ' && !isJumping && !gameOver) {
+  if (key === ' ' && !isJumping && !gameOver && gameStarted) {
     player.velY = jumpStrength;
     isJumping = true;
   }
@@ -96,7 +119,11 @@ function keyPressed() {
 function createRestartButton() {
   restartButton = createButton("Restart");
   restartButton.position(width / 2 - 40, height / 2 + 10);
-  restartButton.mousePressed(setupGame);
+  restartButton.mousePressed(() => {
+    setupGame();
+    countdownStartTime = millis();
+    gameStarted = false;
+  });
 }
 
 class Player {
@@ -114,7 +141,7 @@ class Player {
   }
 
   draw() {
-    fill(0, 100, 255);
+    fill(255, 0, 0); // Red color
     rect(this.x, this.y, this.w, this.h);
   }
 }
