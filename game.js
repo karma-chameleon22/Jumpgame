@@ -9,12 +9,12 @@ let restartButton;
 let countdown = 3;        // countdown seconds
 let countdownStartTime;   // track when countdown started
 let gameStarted = false;
+let startDelay = 2000;    // delay (ms) after countdown before enabling jump & scrolling
 
 function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
   textSize(64);
-  countdownStartTime = millis();
   setupGame();
 }
 
@@ -24,22 +24,27 @@ function setupGame() {
   isJumping = false;
   gameOver = false;
   gameStarted = false;
-  countdown = 3;
-  countdownStartTime = millis();
 
-  // Start on flat land
+  // Create starting platforms flat on bottom
   for (let i = 0; i < 3; i++) {
     platforms.push(new Platform(i * 300, height - 50));
   }
 
+  // Player starts ON first platform:
+  player.x = platforms[0].x + 20;
+  player.y = platforms[0].y - player.h;
+  player.velY = 0;
+
   // Generate random platforms beyond flat land
-  let lastX = 900;
+  let lastX = platforms[platforms.length - 1].x + 300;
   for (let i = 0; i < 10; i++) {
     let gap = random(80, 200);
     let heightVar = random(-100, 100);
     platforms.push(new Platform(lastX + gap, height - 100 + heightVar));
     lastX += gap;
   }
+
+  countdownStartTime = millis();
 
   if (restartButton) {
     restartButton.remove();
@@ -50,21 +55,36 @@ function setupGame() {
 function draw() {
   background(240);
 
-  if (!gameStarted) {
-    // Show countdown
-    let elapsed = floor((millis() - countdownStartTime) / 1000);
-    let timeLeft = countdown - elapsed;
+  let elapsed = millis() - countdownStartTime;
 
-    if (timeLeft > 0) {
+  if (!gameStarted) {
+    // Show countdown timer
+    let count = countdown - floor(elapsed / 1000);
+    if (count > 0) {
       fill(0);
-      text(timeLeft, width / 2, height / 2);
+      text(count, width / 2, height / 2);
+    } else if (elapsed < countdown * 1000 + startDelay) {
+      // After countdown, show "Get Ready" message during startDelay
+      fill(0);
+      textSize(48);
+      text("Get Ready...", width / 2, height / 2);
+      textSize(64);
+      // Keep player on first platform
+      player.x = platforms[0].x + 20;
+      player.y = platforms[0].y - player.h;
+      player.velY = 0;
     } else {
+      // Start game after countdown + delay
       gameStarted = true;
+      textSize(64); // Reset text size in case
     }
-    return; // Skip rest of draw until game starts
+    player.draw();
+    platforms.forEach(p => p.draw());
+    return; // Skip rest until gameStarted
   }
 
   if (!gameOver) {
+    // Update and draw player & platforms
     player.update();
     player.draw();
 
@@ -72,7 +92,7 @@ function draw() {
       platforms[i].update();
       platforms[i].draw();
 
-      // Collision
+      // Collision detection with platforms
       if (
         player.velY > 0 &&
         player.y + player.h <= platforms[i].y &&
@@ -85,7 +105,7 @@ function draw() {
         isJumping = false;
       }
 
-      // Remove off-screen
+      // Remove platforms off screen and add new ones
       if (platforms[i].x + platforms[i].w < 0) {
         platforms.splice(i, 1);
 
@@ -96,20 +116,21 @@ function draw() {
       }
     }
 
-    // Game over check
+    // Game over if player falls below screen
     if (player.y > height) {
       gameOver = true;
       createRestartButton();
     }
   } else {
+    fill(0);
     textAlign(CENTER, CENTER);
     textSize(48);
-    fill(0);
     text("Game Over", width / 2, height / 2 - 50);
   }
 }
 
 function keyPressed() {
+  // Only allow jumping if game started, not jumping already, and not game over
   if (key === ' ' && !isJumping && !gameOver && gameStarted) {
     player.velY = jumpStrength;
     isJumping = true;
@@ -121,8 +142,6 @@ function createRestartButton() {
   restartButton.position(width / 2 - 40, height / 2 + 10);
   restartButton.mousePressed(() => {
     setupGame();
-    countdownStartTime = millis();
-    gameStarted = false;
   });
 }
 
@@ -141,7 +160,7 @@ class Player {
   }
 
   draw() {
-    fill(255, 0, 0); // Red color
+    fill(255, 0, 0); // red color
     rect(this.x, this.y, this.w, this.h);
   }
 }
@@ -156,7 +175,9 @@ class Platform {
   }
 
   update() {
-    this.x -= this.speed;
+    if (gameStarted) {
+      this.x -= this.speed;
+    }
   }
 
   draw() {
